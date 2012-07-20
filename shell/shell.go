@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -40,19 +39,13 @@ type AsyncReader struct {
 
 func (ar *AsyncReader) assyncRead() {
 	for {
-		fmt.Println("pipe.read")
 		ar.n, _ = (*ar.pipe).Read(ar.buf)
-		fmt.Println("read! " + strconv.Itoa(ar.n) + ", '" + string(ar.buf[0:ar.n]) + "'")
+		// fmt.Println("read! " + strconv.Itoa(ar.n) + ", '" + string(ar.buf[0:ar.n]) + "'")
 		if ar.n > 0 {
-			fmt.Println("Sending")
 			ar.outch <- string(ar.buf[0:ar.n])
-			fmt.Println("Sending SENT")
 		} else {
-			fmt.Println("Sending empty")
 			ar.outch <- ""
-			fmt.Println("Sending SENT empty")
 		}
-		fmt.Println("sent")
 	}
 }
 func newAsyncReader(apipe *io.ReadCloser) *AsyncReader {
@@ -61,24 +54,21 @@ func newAsyncReader(apipe *io.ReadCloser) *AsyncReader {
 		outch: make(chan string),
 		buf:   make([]byte, 32*1024),
 	}
-	fmt.Println("start read")
 	return anAsyncReader
 }
 
 func (ar *AsyncReader) read() int {
 	ar.out = ""
-	fmt.Println("wait on outch")
 	select {
-	case n, ok := <-ar.outch:
+	case _, ok := <-ar.outch:
 		if ok {
-			fmt.Println("done wait on outch: '" + n + "'")
 			ar.out = <-ar.outch
 		} else {
 			fmt.Println("outch is closed!")
 			break
 		}
 	default:
-		fmt.Println("default read")
+		// fmt.Println("default read")
 	}
 	return len(ar.out)
 }
@@ -93,7 +83,6 @@ func NewShell() *Shell {
 	astderr, err := acmd.StderrPipe()
 	checkError(err)
 	anAsyncStderr := newAsyncReader(&astderr)
-	fmt.Println("stds")
 	astdin, err := acmd.StdinPipe()
 	checkError(err)
 
@@ -102,17 +91,7 @@ func NewShell() *Shell {
 	checkError(err)
 
 	go anAsyncStdout.assyncRead()
-
-	// Don't let main() exit before our command has finished running
-	// defer acmd.Wait() // Doesn't block
-
-	// Non-blockingly echo command output to terminal
-	//go io.Copy(os.Stdout, astdout)
-	//go io.Copy(os.Stderr, stderr)
-	fmt.Println("Wait")
-	//go anAsyncStdout.assyncRead()
 	go acmd.Wait()
-	fmt.Println("Waiting")
 	return &Shell{
 		cmd:    acmd,
 		stdout: anAsyncStdout,
@@ -132,13 +111,7 @@ func (s *Shell) Exec(cmd string) *Status {
 
 	fmt.Println("Exec " + cmd)
 
-	time.Sleep(1 * 1e9)
-	b := make([]byte, 32*1024)
-	//n, _ := (*s.stdout.pipe).Read(b)
-	n := 0
-	if n > 0 {
-		fmt.Println("read ====> " + strconv.Itoa(n) + ", '" + string(b[0:n]) + "'")
-	}
+	time.Sleep(1 * 1e7)
 
 	sout := ""
 	mustBreakAfterNextStdout := false
@@ -161,12 +134,12 @@ func (s *Shell) Exec(cmd string) *Status {
 			m := s.stdout.out
 			fmt.Println("m >>> '", m, "'")
 			sout = sout + m
-			fmt.Println("m ??? '", now.String(), " contains? "+strconv.FormatBool(strings.Contains(sout, "~~~:"+now.String())))
+			// fmt.Println("m ??? '", now.String(), " contains? "+strconv.FormatBool(strings.Contains(sout, "~~~:"+now.String())))
 			if strings.Contains(m, "~~~:"+now.String()) {
 				mustBreakAfterNextStdout = true
 			}
 		default:
-			fmt.Println("default")
+			// fmt.Println("default")
 		}
 		if mustBreak {
 			break

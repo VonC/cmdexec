@@ -14,5 +14,4 @@ func main() {
 
 	status = s.Exec("echo Hello World!")
 	fmt.Println("done: " + strconv.FormatBool(status.Success))
-
 }
