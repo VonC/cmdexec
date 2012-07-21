@@ -6,8 +6,8 @@ import (
 	"io"
 	"log"
 	"os/exec"
+	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -90,6 +90,11 @@ func (s *Shell) Exec(cmd string) *Status {
 	_, err = (*s.stdin).Write([]byte("echo %ERRORLEVEL%" + end + "\n"))
 	checkError(err)
 
+	re, err := regexp.CompilePOSIX("^[^%]*?~~~")
+	checkError(err)
+	fmt.Println(re)
+	lend := len(end) + 7
+
 	out := ""
 	ok := true
 	readout := ""
@@ -99,7 +104,7 @@ func (s *Shell) Exec(cmd string) *Status {
 			if ok {
 				fmt.Println("Exec: received '" + readout + "'")
 				out = out + readout
-				if strings.Contains(out, end) {
+				if re.FindAllStringIndex(out, len(out)-lend) != nil {
 					ok = false
 				}
 			} else {
