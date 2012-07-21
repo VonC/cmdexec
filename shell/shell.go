@@ -26,6 +26,8 @@ type Shell struct {
 	cout   <-chan string
 }
 
+type stateFn func(*Shell) stateFn
+
 type Status struct {
 	Success bool
 	Stdout  string
@@ -90,7 +92,7 @@ func (s *Shell) Exec(cmd string) *Status {
 	_, err = (*s.stdin).Write([]byte("echo %ERRORLEVEL%" + end + "\n"))
 	checkError(err)
 
-	re, err := regexp.CompilePOSIX("^[^%]*?~~~")
+	re, err := regexp.CompilePOSIX("^[^%]*?" + regexp.QuoteMeta(end) + "[\r\n]*?$")
 	checkError(err)
 	fmt.Println(re)
 	lend := len(end) + 7
