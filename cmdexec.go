@@ -9,9 +9,15 @@ import (
 func main() {
 	fmt.Println("hello cmdexec! ")
 	s := shell.NewShell()
-	status := s.Exec("dir")
-	fmt.Println("done: " + strconv.FormatBool(status.Success))
+	exec(s, "dir")
+	exec(s, "echo Hello World!")
+}
 
-	status = s.Exec("echo Hello World!")
+func exec(s *shell.Shell, cmd string) {
+	fmt.Println("Exec " + cmd)
+	fmt.Println("vvvvvvvvvvv")
+	status := s.Exec(cmd)
+	fmt.Println("^^^^^^^^^^^")
 	fmt.Println("done: " + strconv.FormatBool(status.Success))
+	fmt.Println("out: " + status.Stdout)
 }
