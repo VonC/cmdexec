@@ -15,9 +15,9 @@ func main() {
 
 func exec(s *shell.Shell, cmd string) {
 	fmt.Println("Exec " + cmd)
-	fmt.Println("vvvvvvvvvvv")
+	// fmt.Println("vvvvvvvvvvv")
 	status := s.Exec(cmd)
-	fmt.Println("^^^^^^^^^^^")
-	fmt.Println("done: " + strconv.FormatBool(status.Success))
-	fmt.Println("out: " + status.Stdout)
+	// fmt.Println("^^^^^^^^^^^")
+	fmt.Println("done: " + strconv.FormatBool(status.IsSuccessful()) + ": '" + status.Exit() + "'")
+	fmt.Println("out: '" + status.Stdout() + "'")
 }
