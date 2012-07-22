@@ -10,6 +10,7 @@ func main() {
 	fmt.Println("hello cmdexec! ")
 	s := shell.NewShell()
 	exec(s, "dir")
+	exec(s, "dummyCommand")
 	exec(s, "echo Hello World!")
 }
 

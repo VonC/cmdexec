@@ -97,7 +97,7 @@ func startRead(pipe *io.ReadCloser) <-chan string {
 func waitForEnd(s *Shell) stateFn {
 	r := regexp.MustCompile(
 		"(?m)^.*?(?:>)?" +
-			regexp.QuoteMeta("echo %ERRORLEVEL%~~~:"+s.start.String()) +
+			regexp.QuoteMeta("echo %ERRORLEVEL%~~~:"+s.start.String()+" & ver > nul") +
 			"\\s*" +
 			"([^%]*?)" + regexp.QuoteMeta("~~~:"+s.start.String()) +
 			"",
@@ -157,10 +157,11 @@ func (s *Shell) Exec(cmd string) *Status {
 	end := "~~~:" + now.String()
 	_, err := (*s.stdin).Write([]byte(cmd + "\n"))
 	checkError(err)
-	_, err = (*s.stdin).Write([]byte("echo %ERRORLEVEL%" + end + "\n"))
+	_, err = (*s.stdin).Write([]byte("echo %ERRORLEVEL%" + end + " & ver > nul" + "\n"))
 	checkError(err)
 
 	s.status.stdout = ""
+	s.status.success = false
 	for state := waitForCmd(s); state != nil; {
 		state = state(s)
 	}
