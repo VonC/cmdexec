@@ -42,6 +42,7 @@ type Shell struct {
 	stderr *io.ReadCloser
 	stdin  *io.WriteCloser
 	cout   <-chan string
+	cerr   <-chan string
 	status Status
 }
 
@@ -70,6 +71,7 @@ func NewShell() *Shell {
 		stdin:  &astdin,
 		stderr: &astderr,
 		cout:   startRead(&astdout),
+		cerr:   startRead(&astderr),
 	}
 }
 
@@ -103,17 +105,22 @@ func waitForEnd(s *Shell) stateFn {
 			"",
 	)
 	// fmt.Println("waitForEnd: looking for '" + r.String() + "'")
-	for readout := range s.cout {
-		// fmt.Println("waitForEnd: received '" + readout + "'")
-		s.status.stdout = s.status.stdout + readout
-		if loc := r.FindStringSubmatchIndex(s.status.stdout); loc != nil {
-			s.status.exit = s.status.stdout[loc[2]:loc[3]]
-			if s.status.exit == "0" {
-				s.status.success = true
+	for {
+		select {
+		case readout := <-s.cout:
+			// fmt.Println("waitForEnd: received '" + readout + "'")
+			s.status.stdout = s.status.stdout + readout
+			if loc := r.FindStringSubmatchIndex(s.status.stdout); loc != nil {
+				s.status.exit = s.status.stdout[loc[2]:loc[3]]
+				if s.status.exit == "0" {
+					s.status.success = true
+				}
+				// fmt.Println("waitForEnd: found status '" + s.status.exit + "'")
+				s.status.stdout = s.status.stdout[:loc[0]]
+				return nil
 			}
-			// fmt.Println("waitForEnd: found status '" + s.status.exit + "'")
-			s.status.stdout = s.status.stdout[:loc[0]]
-			return nil
+		case readerr := <-s.cerr:
+			s.status.stdout = s.status.stdout + readerr
 		}
 	}
 	// If the end command isn't found, block forever.
@@ -133,6 +140,8 @@ func waitForCmd(s *Shell) stateFn {
 				s.status.stdout = s.status.stdout[loc[1]:]
 				return waitForEnd(s)
 			}
+		case readerr := <-s.cerr:
+			s.status.stdout = s.status.stdout + readerr
 		case _ = <-timeout:
 			fmt.Println("waitForCmd: No cmd detected on shell?! '" + s.scmd + "'")
 			return nil // should actually Panic
