@@ -18,10 +18,22 @@ func checkError(err error) {
 	}
 }
 
+type Output struct {
+	Stdout  string
+	Stderr  string
+	ignored bool
+}
+
+type errIndex struct {
+	start int
+	end   int
+}
+
 type Status struct {
 	success bool
 	stdout  string
 	exit    string
+	errs    []errIndex
 }
 
 func (st *Status) IsSuccessful() bool {
@@ -32,6 +44,32 @@ func (st *Status) Stdout() string {
 }
 func (st *Status) Exit() string {
 	return st.exit
+}
+func (st *Status) Outputs() []Output {
+	aStart := 0
+	outputs := make([]Output, 0)
+	for _, anerr := range st.errs {
+		anStdOut := ""
+		anStdErr := ""
+		if anerr.start == 0 {
+			anStdOut = ""
+		} else {
+			anStdOut = st.stdout[aStart:anerr.start]
+		}
+		anStdErr = st.stdout[anerr.start:anerr.end]
+		aStart = anerr.end
+		outputs = append(outputs, Output{
+			Stdout: anStdOut,
+			Stderr: anStdErr,
+		})
+	}
+	if aStart < len(st.Stdout()) {
+		outputs = append(outputs, Output{
+			Stdout: st.Stdout()[aStart:],
+		})
+	}
+
+	return outputs
 }
 
 type Shell struct {
@@ -120,6 +158,10 @@ func waitForEnd(s *Shell) stateFn {
 				return nil
 			}
 		case readerr := <-s.cerr:
+			anErrIndex := &errIndex{
+				start: len(s.status.stdout),
+				end:   len(s.status.stdout) + len(readerr)}
+			s.status.errs = append(s.status.errs, *anErrIndex)
 			s.status.stdout = s.status.stdout + readerr
 		}
 	}
@@ -141,6 +183,10 @@ func waitForCmd(s *Shell) stateFn {
 				return waitForEnd(s)
 			}
 		case readerr := <-s.cerr:
+			anErrIndex := &errIndex{
+				start: len(s.status.stdout),
+				end:   len(s.status.stdout) + len(readerr)}
+			s.status.errs = append(s.status.errs, *anErrIndex)
 			s.status.stdout = s.status.stdout + readerr
 		case _ = <-timeout:
 			fmt.Println("waitForCmd: No cmd detected on shell?! '" + s.scmd + "'")
@@ -162,6 +208,7 @@ func (s *Shell) Exec(cmd string) *Status {
 	now := time.Now()
 	s.start = &now
 	s.scmd = cmd
+	s.status.errs = make([]errIndex, 0)
 
 	end := "~~~:" + now.String()
 	_, err := (*s.stdin).Write([]byte(cmd + "\n"))
