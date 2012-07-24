@@ -37,6 +37,9 @@ type Status struct {
 }
 
 func (st *Status) IsSuccessful() bool {
+	if st.success {
+		return len(st.errs) == 0
+	}
 	return st.success
 }
 func (st *Status) Stdout() string {
@@ -82,6 +85,7 @@ type Shell struct {
 	cout   <-chan string
 	cerr   <-chan string
 	status Status
+	ins    []string
 }
 
 type stateFn func(*Shell) stateFn
@@ -203,16 +207,21 @@ func (s *Shell) run(end chan int) {
 
 // Synchronous function (will block until the command sent to the shell 
 // complete)
-func (s *Shell) Exec(cmd string) *Status {
+func (s *Shell) Exec(cmd string, ins ...string) *Status {
 
 	now := time.Now()
 	s.start = &now
 	s.scmd = cmd
 	s.status.errs = make([]errIndex, 0)
+	s.ins = ins
 
 	end := "~~~:" + now.String()
 	_, err := (*s.stdin).Write([]byte(cmd + "\n"))
 	checkError(err)
+	for _, anInput := range ins {
+		_, err = (*s.stdin).Write([]byte(anInput + "\n"))
+		checkError(err)
+	}
 	_, err = (*s.stdin).Write([]byte("echo %ERRORLEVEL%" + end + " & ver > nul" + "\n"))
 	checkError(err)
 
