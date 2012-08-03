@@ -76,16 +76,17 @@ func (st *Status) Outputs() []Output {
 }
 
 type Shell struct {
-	cmd    *exec.Cmd
-	scmd   string
-	start  *time.Time
-	stdout *io.ReadCloser
-	stderr *io.ReadCloser
-	stdin  *io.WriteCloser
-	cout   <-chan string
-	cerr   <-chan string
-	status Status
-	ins    []string
+	cmd     *exec.Cmd
+	scmd    string
+	start   *time.Time
+	stdout  *io.ReadCloser
+	stderr  *io.ReadCloser
+	stdin   *io.WriteCloser
+	cout    <-chan string
+	cerr    <-chan string
+	status  Status
+	ins     []string
+	timeout int
 }
 
 type stateFn func(*Shell) stateFn
@@ -139,6 +140,7 @@ func startRead(pipe *io.ReadCloser) <-chan string {
 }
 
 func waitForEnd(s *Shell) stateFn {
+	timeout := time.After(time.Duration(s.timeout) * time.Second)
 	r := regexp.MustCompile(
 		"(?m)^.*?(?:>)?" +
 			regexp.QuoteMeta("echo %ERRORLEVEL%~~~:"+s.start.String()+" & ver > nul") +
@@ -150,7 +152,7 @@ func waitForEnd(s *Shell) stateFn {
 	for {
 		select {
 		case readout := <-s.cout:
-			// fmt.Println("waitForEnd: received '" + readout + "'")
+			//fmt.Println("waitForEnd: received '" + readout + "'")
 			s.status.stdout = s.status.stdout + readout
 			if loc := r.FindStringSubmatchIndex(s.status.stdout); loc != nil {
 				s.status.exit = s.status.stdout[loc[2]:loc[3]]
@@ -167,6 +169,11 @@ func waitForEnd(s *Shell) stateFn {
 				end:   len(s.status.stdout) + len(readerr)}
 			s.status.errs = append(s.status.errs, *anErrIndex)
 			s.status.stdout = s.status.stdout + readerr
+		case _ = <-timeout:
+			if s.timeout > 0 {
+				fmt.Println("waitForCmd: TIMEOUT for: '" + s.scmd + "'")
+				return nil
+			}
 		}
 	}
 	// If the end command isn't found, block forever.
@@ -205,15 +212,20 @@ func (s *Shell) run(end chan int) {
 	close(end)
 }
 
+func (s *Shell) Exec(cmd string, ins ...string) *Status {
+	return s.ExecWithTimeout(cmd, 0, ins...)
+}
+
 // Synchronous function (will block until the command sent to the shell 
 // complete)
-func (s *Shell) Exec(cmd string, ins ...string) *Status {
+func (s *Shell) ExecWithTimeout(cmd string, timeout int, ins ...string) *Status {
 
 	now := time.Now()
 	s.start = &now
 	s.scmd = cmd
 	s.status.errs = make([]errIndex, 0)
 	s.ins = ins
+	s.timeout = timeout
 
 	end := "~~~:" + now.String()
 	_, err := (*s.stdin).Write([]byte(cmd + "\n"))
