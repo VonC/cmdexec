@@ -1,7 +1,7 @@
 go-cmdexec
 ==========
 
-cmd wrapper for real-time logging
+**`cmd`** wrapper for real-time logging
 
 Goals:
 
